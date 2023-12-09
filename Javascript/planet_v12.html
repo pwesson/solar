@@ -1,0 +1,297 @@
+/*
+
+// Kepler Formula
+// Copyright (C) 2020 https://www.roboticboat.uk
+// 628ba9bd-35e8-4f8f-a8b3-579c76262a0d
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// These Terms shall be governed and construed in accordance with the laws of 
+// England and Wales, without regard to its conflict of law provisions.
+
+// Some old code.
+
+*/
+
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<style>
+			body {
+				background-color: white;
+			}
+			
+			canvas {
+				position: absolute;
+				margin: auto;
+				left: 0;
+				right: 0;
+				border: solid 0px black;
+				border-radius: 0px
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	
+	<body>
+		<canvas id="canvas"></canvas>
+		<script type="application/javascript">
+			
+			void function() {
+			
+				"use strict";
+				
+				const _2PI = 2.0 * Math.PI;
+
+				const eccentricity = 0.80;
+
+				const argumentOfPerhelion = 0;
+
+				let majorAxis = 200;
+				let canvasWidth = 600;
+				let canvasHeight = 600;
+				let midX = 300;
+
+				let canvas = null;
+				let ctx = null;
+
+				let center = null;
+				let sun = null;
+				let earth = null;				
+
+				let meanAnomaly = null;
+				let trueAnomaly = null;
+				let elipticEarth = null;
+				
+				class Planet {
+					constructor(x,y,radius,colour,parent,orbitDistance,orbitSpeed) {
+						this.x = 0;
+						this.y = 0;
+						this.x2 = 0;
+						this.y2 = 0;
+						
+						this.meanAnomalyM = 0.0;
+						this.eccentricAnomalyE = 0;
+						this.trueAnomalyTheta = 0;						
+						
+						this.keplerDistance = 0;
+						this.originX = x;
+						this.originY = y;
+						this.radius = radius;
+						this.colour = colour;
+						this.parent = parent || null;
+						this.orbitDistance = parent ? orbitDistance : 0;
+						this.orbitSpeed = parent ? orbitSpeed : 0;						
+					}
+					
+					tick() {
+
+						// Constant tick rate of the orbit
+						this.meanAnomalyM += this.orbitSpeed;
+
+						// If greater than 360 degrees, then subtract 360 degrees
+						if (this.meanAnomalyM > _2PI) 
+						{
+							this.meanAnomalyM = this.meanAnomalyM - _2PI;
+						}
+
+						// Kepler formula to derive the true anomaly
+						this.eccentricAnomalyE = this.meanAnomalyM;
+						this.eccentricAnomalyE = this.eccentricAnomalyE - (this.eccentricAnomalyE - eccentricity * Math.sin(this.eccentricAnomalyE) - this.meanAnomalyM)/(1- eccentricity * Math.cos(this.eccentricAnomalyE));
+						this.eccentricAnomalyE = this.eccentricAnomalyE - (this.eccentricAnomalyE - eccentricity * Math.sin(this.eccentricAnomalyE) - this.meanAnomalyM)/(1- eccentricity * Math.cos(this.eccentricAnomalyE));
+						this.eccentricAnomalyE = this.eccentricAnomalyE - (this.eccentricAnomalyE - eccentricity * Math.sin(this.eccentricAnomalyE) - this.meanAnomalyM)/(1- eccentricity * Math.cos(this.eccentricAnomalyE));
+						
+						this.trueAnomalyTheta = 2*Math.atan(Math.tan(this.eccentricAnomalyE/2)*Math.sqrt((1+eccentricity)/(1-eccentricity)));
+
+						this.keplerDistance = this.orbitDistance * (1- eccentricity * Math.cos(this.eccentricAnomalyE));						
+					}
+
+					render(ctx) {
+
+						this.x = (this.parent ? this.parent.x : this.originX) + Math.cos(this.meanAnomalyM) * this.orbitDistance;
+						this.y = (this.parent ? this.parent.y : this.originY) + Math.sin(this.meanAnomalyM) * this.orbitDistance;
+
+						ctx.strokeStyle = "black";
+						ctx.fillStyle = this.colour;
+						ctx.beginPath();
+						ctx.arc(this.x,this.y,this.radius,0.0,_2PI,false);
+						ctx.fill();
+						ctx.stroke();
+						ctx.closePath();
+					}
+
+					renderMeanAnomalyM(ctx) {
+
+						this.x = (this.parent ? this.parent.x : this.originX) + Math.cos(this.meanAnomalyM) * this.orbitDistance;
+						this.y = (this.parent ? this.parent.y : this.originY) + Math.sin(this.meanAnomalyM) * this.orbitDistance;
+
+						ctx.strokeStyle = "black";
+						ctx.fillStyle = this.colour;
+						ctx.beginPath();
+						ctx.arc(this.x,this.y,this.radius,0.0,_2PI,false);
+						ctx.fill();
+						ctx.stroke();
+						
+						ctx.moveTo(midX,midX);
+						ctx.lineTo(this.x,this.y);
+						ctx.stroke();
+						ctx.closePath();
+
+						// Add labels
+						ctx.font = "14px Arial";
+						ctx.fillStyle = "#000000";
+						ctx.fillText("Mean Anomaly",this.x-35,this.y-20);
+					}
+
+					renderEccentricAnomalyE(ctx) {
+
+						this.x = (this.parent ? this.parent.x : this.originX) + Math.cos(this.eccentricAnomalyE) * this.orbitDistance;
+						this.y = (this.parent ? this.parent.y : this.originY) + Math.sin(this.eccentricAnomalyE) * this.orbitDistance;
+
+						ctx.strokeStyle = "black";
+						ctx.fillStyle = this.colour;
+						ctx.beginPath();
+						ctx.arc(this.x,this.y,this.radius,0.0,_2PI,false);
+						ctx.fill();
+						ctx.stroke();
+						
+						ctx.moveTo(midX,midX);
+						ctx.lineTo(this.x,this.y);
+						ctx.stroke();
+						ctx.closePath();
+
+						// Add labels
+						ctx.font = "14px Arial";
+						ctx.fillStyle = "#000000";
+						ctx.fillText("Eccentric Anomaly",this.x-35,this.y-20);
+					}
+					
+					renderTrueAnomalyTheta(ctx) {
+
+						this.x = (this.parent ? this.parent.x : this.originX) + Math.cos(this.trueAnomalyTheta) * this.keplerDistance 
+						this.y = (this.parent ? this.parent.y : this.originY) + Math.sin(this.trueAnomalyTheta) * this.keplerDistance
+
+						this.x2 = (this.parent ? this.parent.x : this.originX) + Math.cos(this.eccentricAnomalyE) * this.orbitDistance;
+						this.y2 = (this.parent ? this.parent.y : this.originY) + Math.sin(this.eccentricAnomalyE) * this.orbitDistance;
+
+						ctx.strokeStyle = "black";
+						ctx.fillStyle = "#00FF00";
+						ctx.beginPath();
+						ctx.arc(this.x+eccentricity*majorAxis,this.y,this.radius,0.0,_2PI,false);
+						ctx.fill();
+						ctx.stroke();
+						
+						ctx.moveTo(midX+eccentricity*majorAxis,midX);
+						ctx.lineTo(this.x+eccentricity*majorAxis,this.y);
+						ctx.lineTo(this.x2,this.y2);
+
+						ctx.stroke();
+						ctx.closePath();
+
+						// Add labels
+						ctx.font = "14px Arial";
+						ctx.fillStyle = "#000000";
+						ctx.fillText("True Anomaly",this.x-35+eccentricity*majorAxis,this.y-20);
+		
+					}
+
+				}
+								
+				function loop() {
+					
+					// Update orbits
+					earth.tick();
+
+					// Clear canvas
+					ctx.fillStyle = "#FFFFFF";
+					ctx.fillRect(0,0,canvasWidth,canvasHeight);
+					
+					// Render planets
+					center.render(ctx);
+					sun.render(ctx);
+
+					earth.renderMeanAnomalyM(ctx);
+					earth.renderEccentricAnomalyE(ctx);
+					earth.renderTrueAnomalyTheta(ctx);
+
+					// Add labels
+					ctx.font = "14px Arial";
+					ctx.fillStyle = "#000000";
+					ctx.fillText("Center", midX-25, midX-15);
+					ctx.fillText("Sun", midX+eccentricity*majorAxis-15, midX-15);
+
+					// Keeps the loop running at 60 fps
+					requestAnimationFrame(loop);
+				}
+				
+				window.onload = function() {
+
+					// View size
+					canvasWidth = Math.min(document.documentElement.clientWidth || 0, window.innerWidth || 0)
+					canvasHeight = Math.min(document.documentElement.clientHeight || 0, window.innerHeight || 0)
+					
+					// Want a square view that fits the User display
+					if (canvasHeight < canvasWidth){
+						canvasWidth = canvasHeight;
+					}
+
+					midX = canvasWidth/2;
+					majorAxis = canvasWidth/3;
+					// Setup the background canvas
+					canvas = document.getElementById("canvas");
+					canvas.width = canvasWidth;
+					canvas.height = canvasHeight;
+					ctx = canvas.getContext("2d");
+					
+					center = new Planet(midX,midX,10,"#FFFFFF");
+
+					sun = new Planet(midX+eccentricity*majorAxis,midX,10,"#FFFF00");
+
+					earth = new Planet(midX, midX, 10, "#FFFFFF", center, majorAxis, -0.005);
+					
+					loop();
+				}
+
+				window.onresize = function() {
+
+					// View size
+					canvasWidth = Math.min(document.documentElement.clientWidth || 0, window.innerWidth || 0)
+					canvasHeight = Math.min(document.documentElement.clientHeight || 0, window.innerHeight || 0)
+					
+					// Want a square view that fits the User display
+					if (canvasHeight < canvasWidth){
+						canvasWidth = canvasHeight;
+					}
+
+					midX = canvasWidth/2;
+					majorAxis = canvasWidth/3;
+					// Setup the background canvas
+					canvas = document.getElementById("canvas");
+					canvas.width = canvasWidth;
+					canvas.height = canvasHeight;
+					ctx = canvas.getContext("2d");
+					
+					center = new Planet(midX,midX,10,"#FFFFFF");
+
+					sun = new Planet(midX+eccentricity*majorAxis,midX,10,"#FFFF00");
+
+					earth = new Planet(midX, midX, 10, "#FFFFFF", center, majorAxis, -0.005);	
+				}
+			
+			}();
+			
+		</script>
+	</body>
+</html>
